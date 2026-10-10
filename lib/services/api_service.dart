@@ -1,7 +1,4 @@
 class ApiService {
-  // ======================================================
-  // CUKUP GANTI DI SINI kalau pindah WiFi / ganti jaringan
-  // ======================================================
   static const String serverIp = "192.168.1.13";
   static const String serverPort = "8000";
   // Emulator Android: ganti serverIp jadi "10.0.2.2"
