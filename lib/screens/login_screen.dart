@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'dashboard_screen.dart';
+import '../services/change_password_screen.dart';
+import 'main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,8 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final user = await AuthService.login(_phone.text.trim(), _password.text);
       if (!mounted) return;
+
+      // Member yang baru di-reset admin wajib mengganti password dulu.
+      final Widget tujuan = user['must_change_password'] == true
+          ? ChangePasswordScreen(user: user, wajib: true)
+          : MainShell(user: user);
+
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => DashboardScreen(user: user)),
+        MaterialPageRoute(builder: (_) => tujuan),
       );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -98,6 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Masuk'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Lupa password? Hubungi petugas parkir, reset dilakukan oleh admin.',
+              textAlign: TextAlign.center,
             ),
           ],
         ),

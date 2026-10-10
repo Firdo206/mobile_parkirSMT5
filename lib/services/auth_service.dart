@@ -10,6 +10,14 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+/// Dilempar saat server menolak token (401/403): sesi habis atau akun
+/// dinonaktifkan. Layar yang menangkapnya sebaiknya kembali ke Login.
+class SesiBerakhirException implements Exception {
+  const SesiBerakhirException();
+  @override
+  String toString() => 'Sesi berakhir. Silakan masuk lagi.';
+}
+
 class AuthService {
   static const _storage = FlutterSecureStorage();
   static const _headers = {
@@ -63,13 +71,66 @@ class AuthService {
       if (res.statusCode == 200) {
         return (jsonDecode(res.body) as Map<String, dynamic>)['user'];
       }
-      if (res.statusCode == 401) {
+      // 401 = token tidak valid, 403 = akun dinonaktifkan admin.
+      if (res.statusCode == 401 || res.statusCode == 403) {
         await _storage.delete(key: 'token');
       }
       return null;
     } catch (_) {
       return null;
     }
+  }
+
+  /// Ganti password. Dipakai saat wajib ganti (must_change_password) maupun
+  /// ganti biasa dari menu Akun. Return data user terbaru.
+  static Future<Map<String, dynamic>> changePassword({
+    required String current,
+    required String password,
+    required String confirmation,
+  }) async {
+    final token = await getToken();
+    if (token == null) throw const SesiBerakhirException();
+
+    try {
+      final res = await http
+          .post(
+            Uri.parse(ApiService.passwordChange),
+            headers: {..._headers, 'Authorization': 'Bearer $token'},
+            body: jsonEncode({
+              'current_password': current,
+              'password': password,
+              'password_confirmation': confirmation,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+
+      if (res.statusCode == 200) {
+        return body['user'] as Map<String, dynamic>;
+      }
+      if (res.statusCode == 401) {
+        await _storage.delete(key: 'token');
+        throw const SesiBerakhirException();
+      }
+      throw AuthException(_pesanGalat(body, 'Gagal mengganti password.'));
+    } on AuthException {
+      rethrow;
+    } on SesiBerakhirException {
+      rethrow;
+    } catch (_) {
+      throw AuthException('Tidak bisa terhubung ke server. Coba lagi.');
+    }
+  }
+
+  /// Ambil pesan galat paling spesifik dari respons validasi Laravel.
+  static String _pesanGalat(Map<String, dynamic> body, String bawaan) {
+    final errors = body['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final pertama = errors.values.first;
+      if (pertama is List && pertama.isNotEmpty) return pertama.first.toString();
+    }
+    return body['message']?.toString() ?? bawaan;
   }
 
   static Future<void> logout() async {
