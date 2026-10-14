@@ -14,6 +14,18 @@ class NotifikasiService {
     };
   }
 
+  /// Ambil pesan dari body JSON. Kalau server membalas selain JSON
+  /// (misalnya halaman galat), pakai [cadangan].
+  static String _pesan(http.Response res, String cadangan) {
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['message'] != null) {
+        return body['message'].toString();
+      }
+    } catch (_) {}
+    return cadangan;
+  }
+
   static Future<NotifikasiResult> fetch() async {
     final res = await http
         .get(Uri.parse(ApiService.notifikasi), headers: await _headers())
@@ -40,8 +52,21 @@ class NotifikasiService {
         )
         .timeout(const Duration(seconds: 15));
 
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode == 200) return body['message']?.toString() ?? 'Berhasil.';
-    throw Exception(body['message']?.toString() ?? 'Gagal mengirim respons.');
+    if (res.statusCode == 200) return _pesan(res, 'Berhasil.');
+    throw Exception(_pesan(res, 'Gagal mengirim respons (${res.statusCode}).'));
+  }
+
+  /// Nyalakan buzzer di gerbang. Server membatasi lama menyala dan jedanya.
+  static Future<String> buzzer(int id) async {
+    final res = await http
+        .post(
+          Uri.parse(ApiService.notifikasiBuzzer(id)),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (res.statusCode == 200) return _pesan(res, 'Buzzer dinyalakan.');
+    throw Exception(
+        _pesan(res, 'Gagal menyalakan buzzer (${res.statusCode}).'));
   }
 }

@@ -18,5 +18,6 @@ class ApiService {
   static String get profil => '$baseUrl/profil';
   static String get profilFoto => '$baseUrl/profil/foto';
   static String get notifikasi => '$baseUrl/notifikasi';
+  static String notifikasiBuzzer(int id) => '$baseUrl/notifikasi/$id/buzzer';
   static String notifikasiRespon(int id) => '$baseUrl/notifikasi/$id/respon';
 }
